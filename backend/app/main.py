@@ -6,13 +6,14 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .db import Base, engine, get_db
 from .models import Drawing, Project, ReviewTask
+from .processing import FileInspectionError, inspect_file
 from .schemas import DrawingOut, ProjectCreate, ProjectOut, ReviewOut
 
 UPLOAD_ROOT = Path(settings.upload_dir).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="AI施工图审核平台 API", version="0.1.0")
+app = FastAPI(title="AI施工图审核平台 API", version="0.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[x.strip() for x in settings.cors_origins.split(",") if x.strip()],
@@ -25,14 +26,11 @@ ALLOWED_TYPES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": "
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "construction-review-api"}
+    return {"status": "ok", "service": "construction-review-api", "version": app.version}
 
 @app.post("/api/projects", response_model=ProjectOut, status_code=201)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db)):
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(400, "项目名称不能为空")
-    project = Project(name=name)
+    project = Project(name=payload.name)
     db.add(project)
     db.commit()
     db.refresh(project)
@@ -54,13 +52,9 @@ async def upload_drawing(project_id: int, file: UploadFile = File(...), db: Sess
     stored_name = f"{uuid4().hex}{suffix}"
     destination = UPLOAD_ROOT / stored_name
     total = 0
-
     try:
         with destination.open("xb") as output:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
+            while chunk := await file.read(1024 * 1024):
                 total += len(chunk)
                 if total > max_bytes:
                     raise HTTPException(413, f"文件不能超过 {settings.max_upload_mb}MB")
@@ -70,16 +64,25 @@ async def upload_drawing(project_id: int, file: UploadFile = File(...), db: Sess
         raise
     except OSError as exc:
         destination.unlink(missing_ok=True)
-        raise HTTPException(500, f"文件保存失败: {exc}") from exc
+        raise HTTPException(500, "文件保存失败") from exc
     finally:
         await file.close()
 
+    original_name = (file.filename or "unnamed").replace("\\", "/").split("/")[-1][:255]
+    try:
+        metadata = inspect_file(destination, original_name, file.content_type)
+    except FileInspectionError as exc:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(415, str(exc)) from exc
+
     drawing = Drawing(
         project_id=project_id,
-        original_name=(file.filename or "unnamed").replace("\\", "/").split("/")[-1][:255],
+        original_name=original_name,
         stored_name=stored_name,
         mime_type=file.content_type,
         size_bytes=total,
+        page_count=metadata["page_count"],
+        discipline=metadata["discipline"],
     )
     db.add(drawing)
     db.commit()
