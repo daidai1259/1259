@@ -64,3 +64,19 @@ def test_sha256_is_stable(tmp_path: Path):
     path = tmp_path / "file.png"
     make_png(path)
     assert sha256_file(path) == sha256_file(path)
+
+def test_mime_extension_mismatch_rejected(tmp_path: Path):
+    path = tmp_path / "drawing.png"
+    make_png(path)
+    try:
+        inspect_file(path, path.name, "image/jpeg")
+        assert False
+    except FileInspectionError as exc:
+        assert "扩展名" in str(exc)
+
+def test_jpeg_is_accepted_without_imghdr(tmp_path: Path):
+    path = tmp_path / "drawing.jpg"
+    Image.new("RGB", (800, 600), "white").save(path, format="JPEG")
+    result = inspect_file(path, path.name, "image/jpeg")
+    assert result["format"] == "JPEG"
+    assert result["width"] == 800
