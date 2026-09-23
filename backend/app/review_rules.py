@@ -95,7 +95,7 @@ def run_page_rules(page: DrawingPage, review_id: int, db: Session) -> int:
             evidence=evidence,
             confidence=rule.confidence(page),
             coordinate_space="normalized",
-            **_issue_kwargs(page, page.scale_text),
+            **_issue_kwargs(page, page.scale_text if rule.rule_id == "META-SCALE-002" else None),
         ))
         created += 1
     return created
