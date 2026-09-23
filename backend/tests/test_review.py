@@ -82,3 +82,23 @@ def test_drawing_number_sequence_gap_rule():
     issue = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-DWG-003").first()
     assert issue is not None
     assert "A-102" in issue.evidence
+
+
+def test_discipline_consistency_rule():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    from app.db import Base
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    project = Project(name="专业一致性测试")
+    db.add(project); db.commit(); db.refresh(project)
+    drawing = Drawing(project_id=project.id, original_name="set.pdf", stored_name="set.pdf", mime_type="application/pdf", size_bytes=1, sha256="d"*64, status="ready")
+    db.add(drawing); db.commit(); db.refresh(drawing)
+    for n, discipline in enumerate(["建筑", "结构"], start=1):
+        db.add(DrawingPage(drawing_id=drawing.id, page_number=n, image_name=f"p{n}.png", width=1000, height=500, dpi=150, metadata_status="ready", drawing_number="A-101", detected_discipline=discipline))
+    db.commit()
+    task = ReviewTask(project_id=project.id, status="queued", progress=0)
+    db.add(task); db.commit(); db.refresh(task)
+    run_review(task.id, db)
+    issues = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-CONSIST-002").all()
+    assert len(issues) == 2
