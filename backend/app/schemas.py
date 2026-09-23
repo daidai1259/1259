@@ -38,6 +38,19 @@ class DrawingOut(BaseModel):
     pages: list[DrawingPageOut] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
+class ReviewIssueOut(BaseModel):
+    id: int; review_id: int; page_id: int | None
+    rule_id: str; category: str; severity: str; title: str; description: str
+    evidence: str | None; confidence: float | None
+    x0: float | None; y0: float | None; x1: float | None; y1: float | None
+    status: str; created_at: datetime
+    model_config = {"from_attributes": True}
+
 class ReviewOut(BaseModel):
-    id: int; project_id: int; status: str; progress: int; error: str | None; created_at: datetime
+    id: int; project_id: int; status: str; progress: int; error: str | None
+    attempts: int; started_at: datetime | None; finished_at: datetime | None; created_at: datetime
+    model_config = {"from_attributes": True}
+
+class ReviewDetailOut(ReviewOut):
+    issues: list[ReviewIssueOut] = Field(default_factory=list)
     model_config = {"from_attributes": True}
