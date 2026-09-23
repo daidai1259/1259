@@ -132,7 +132,7 @@ def run_cross_page_consistency_rules(pages: Iterable[DrawingPage], review_id: in
 
 
 def run_drawing_number_structure_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
-    pattern = re.compile(r"^([A-Z]+)[-_]?(\\d{3})$", re.IGNORECASE)
+    pattern = re.compile(r"^([A-Z]+)[-_]?(\d{3})$", re.IGNORECASE)
     groups: dict[str, list[tuple[DrawingPage, int]]] = {}
     for page in pages:
         value = _normalized_value(page.drawing_number)
