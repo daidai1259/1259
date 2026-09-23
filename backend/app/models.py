@@ -27,6 +27,8 @@ class Drawing(Base):
     drawing_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     discipline: Mapped[str | None] = mapped_column(String(50), nullable=True)
     status: Mapped[str] = mapped_column(String(30), default="uploaded", nullable=False)
+    processing_progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     project = relationship("Project", back_populates="drawings")
     pages = relationship("DrawingPage", back_populates="drawing", cascade="all, delete-orphan")
