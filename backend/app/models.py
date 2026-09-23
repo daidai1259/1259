@@ -104,6 +104,7 @@ class ReviewIssue(Base):
     y0: Mapped[float | None] = mapped_column(Float, nullable=True)
     x1: Mapped[float | None] = mapped_column(Float, nullable=True)
     y1: Mapped[float | None] = mapped_column(Float, nullable=True)
+    coordinate_space: Mapped[str] = mapped_column(String(20), default="normalized", nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     review = relationship("ReviewTask", back_populates="issues")
