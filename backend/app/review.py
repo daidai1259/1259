@@ -1,7 +1,8 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
-from .models import DrawingPage, ReviewIssue, ReviewTask
+from .models import DrawingPage, ReviewTask
+from .review_rules import run_registered_rules
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -27,21 +28,7 @@ def run_review(review_id: int, db: Session) -> None:
         )
         total = max(len(pages), 1)
         for index, page in enumerate(pages, start=1):
-            checks = [
-                ("META-DWG-001", "图签", "warning", "未识别到图号",
-                 "当前页面未从文字层识别到可靠图号。扫描件可能需要 OCR 后重新检查。"),
-                ("META-SCALE-001", "图签", "warning", "未识别到比例",
-                 "当前页面未识别到比例信息。请结合图签或设计说明人工确认。"),
-            ]
-            for rule_id, category, severity, title, description in checks:
-                if rule_id.endswith("001") and ((rule_id.startswith("META-DWG") and not page.drawing_number)
-                    or (rule_id.startswith("META-SCALE") and not page.scale_text)):
-                    db.add(ReviewIssue(
-                        review_id=task.id, page_id=page.id, rule_id=rule_id,
-                        category=category, severity=severity, title=title,
-                        description=description, evidence=page.extracted_text[:1000] if page.extracted_text else None,
-                        confidence=0.65 if page.extracted_text else 0.35,
-                    ))
+            run_registered_rules(page, task.id, db)
             task.progress = min(95, 5 + int(index / total * 90))
             db.commit()
         task.status = "completed"
