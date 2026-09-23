@@ -239,6 +239,12 @@ def list_review_issues(review_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "审核任务不存在")
     return db.query(ReviewIssue).filter(ReviewIssue.review_id == review_id).order_by(ReviewIssue.id).all()
 
+@app.get("/api/drawings/{drawing_id}/issues", response_model=list[ReviewIssueOut])
+def list_drawing_issues(drawing_id: int, db: Session = Depends(get_db)):
+    if not db.get(Drawing, drawing_id):
+        raise HTTPException(404, "图纸不存在")
+    return (db.query(ReviewIssue).join(ReviewTask).filter(ReviewIssue.page_id.in_(db.query(DrawingPage.id).filter(DrawingPage.drawing_id == drawing_id))).order_by(ReviewIssue.id).all())
+
 @app.get("/api/drawing-pages/{page_id}/image")
 def get_page_image(page_id: int, db: Session = Depends(get_db)):
     page = db.get(DrawingPage, page_id)
