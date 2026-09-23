@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import imghdr
 from pathlib import Path
 from typing import Optional
 
@@ -9,7 +8,7 @@ from PIL import Image, UnidentifiedImageError
 from pypdf import PdfReader
 
 SUPPORTED_SUFFIXES = {".pdf": "pdf", ".jpg": "image", ".jpeg": "image", ".png": "image"}
-ALLOWED_MIME_TYPES = {"application/pdf", "image/jpeg", "image/png"}
+ALLOWED_MIME_TYPES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
 
 class FileInspectionError(ValueError):
     """Raised when a drawing file cannot be safely inspected."""
@@ -45,10 +44,15 @@ def _inspect_image(path: Path) -> dict:
     except (UnidentifiedImageError, OSError) as exc:
         raise FileInspectionError("图片文件损坏或无法解析") from exc
 
-    detected = imghdr.what(path)
-    if detected not in {"jpeg", "png"}:
+    if image_format not in {"JPEG", "PNG"}:
         raise FileInspectionError("图片实际格式不是受支持的 JPG/PNG")
-    return {"kind": "image", "page_count": 1, "width": width, "height": height, "format": image_format}
+    return {
+        "kind": "image",
+        "page_count": 1,
+        "width": width,
+        "height": height,
+        "format": image_format,
+    }
 
 def _inspect_pdf(path: Path) -> dict:
     try:
@@ -72,15 +76,13 @@ def inspect_file(path: Path, original_name: str, mime_type: str | None = None) -
         raise FileInspectionError("文件为空")
 
     suffix = path.suffix.lower()
-    kind = SUPPORTED_SUFFIXES.get(suffix)
-    if not kind:
+    expected_mime = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}.get(suffix)
+    if not expected_mime:
         raise FileInspectionError("不支持的图纸格式")
+    if mime_type and mime_type != expected_mime:
+        raise FileInspectionError("文件扩展名与 MIME 类型不一致")
 
-    result = _inspect_pdf(path) if kind == "pdf" else _inspect_image(path)
-
-    if mime_type and mime_type not in ALLOWED_MIME_TYPES:
-        raise FileInspectionError("MIME 类型不受支持")
-
+    result = _inspect_pdf(path) if SUPPORTED_SUFFIXES[suffix] == "pdf" else _inspect_image(path)
     result.update({
         "sha256": sha256_file(path),
         "discipline": classify_drawing(original_name),
