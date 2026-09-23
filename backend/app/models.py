@@ -70,6 +70,7 @@ class DrawingPageText(Base):
     block_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     line_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
     word_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    coordinate_space: Mapped[str] = mapped_column(String(20), default="source", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     page = relationship("DrawingPage", back_populates="text_items")
 
