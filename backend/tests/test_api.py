@@ -6,7 +6,10 @@ TEST_DB = Path("/tmp/1259-api-test.db")
 TEST_DB.unlink(missing_ok=True)
 os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 
+from app.db import Base, engine
 from app.main import app
+
+Base.metadata.create_all(bind=engine)
 client = TestClient(app)
 
 def test_health():
