@@ -31,3 +31,14 @@ def test_validate_image_dimensions(tmp_path: Path):
     image_path = tmp_path / "page.png"
     Image.new("RGB", (100, 200), "white").save(image_path)
     assert validate_image_dimensions(image_path) == (100, 200)
+
+
+def test_create_thumbnail(tmp_path: Path):
+    from app.rendering import create_thumbnail
+    source = tmp_path / "source.png"
+    target = tmp_path / "thumb.jpg"
+    Image.new("RGB", (2400, 1200), "white").save(source, format="PNG")
+    width, height = create_thumbnail(source, target, 640)
+    assert target.exists()
+    assert width == 640
+    assert height == 320
