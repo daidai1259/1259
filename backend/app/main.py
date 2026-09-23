@@ -8,7 +8,8 @@ from .db import Base, engine, get_db
 from .models import Drawing, Project, ReviewTask
 from .schemas import DrawingOut, ProjectCreate, ProjectOut, ReviewOut
 
-Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
+UPLOAD_ROOT = Path(settings.upload_dir).resolve()
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI施工图审核平台 API", version="0.1.0")
@@ -43,33 +44,39 @@ def list_projects(db: Session = Depends(get_db)):
 
 @app.post("/api/projects/{project_id}/drawings", response_model=DrawingOut, status_code=201)
 async def upload_drawing(project_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    project = db.get(Project, project_id)
-    if not project:
+    if not db.get(Project, project_id):
         raise HTTPException(404, "项目不存在")
-
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(415, "仅支持 PDF、JPG、PNG")
 
     max_bytes = settings.max_upload_mb * 1024 * 1024
     suffix = ALLOWED_TYPES[file.content_type]
     stored_name = f"{uuid4().hex}{suffix}"
-    destination = Path(settings.upload_dir) / stored_name
-
+    destination = UPLOAD_ROOT / stored_name
     total = 0
+
     try:
-        with destination.open("wb") as output:
-            while chunk := await file.read(1024 * 1024):
+        with destination.open("xb") as output:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
                 total += len(chunk)
                 if total > max_bytes:
                     raise HTTPException(413, f"文件不能超过 {settings.max_upload_mb}MB")
                 output.write(chunk)
-    except Exception:
+    except HTTPException:
         destination.unlink(missing_ok=True)
         raise
+    except OSError as exc:
+        destination.unlink(missing_ok=True)
+        raise HTTPException(500, f"文件保存失败: {exc}") from exc
+    finally:
+        await file.close()
 
     drawing = Drawing(
         project_id=project_id,
-        original_name=file.filename or "unnamed",
+        original_name=(file.filename or "unnamed").replace("\\", "/").split("/")[-1][:255],
         stored_name=stored_name,
         mime_type=file.content_type,
         size_bytes=total,
@@ -89,8 +96,7 @@ def list_drawings(project_id: int, db: Session = Depends(get_db)):
 def create_review(project_id: int, db: Session = Depends(get_db)):
     if not db.get(Project, project_id):
         raise HTTPException(404, "项目不存在")
-    count = db.query(Drawing).filter(Drawing.project_id == project_id).count()
-    if count == 0:
+    if db.query(Drawing).filter(Drawing.project_id == project_id).count() == 0:
         raise HTTPException(400, "请先上传至少一张施工图")
     task = ReviewTask(project_id=project_id, status="queued", progress=0)
     db.add(task)
