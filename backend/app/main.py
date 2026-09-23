@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from .config import settings
 from .db import SessionLocal, get_db
-from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask
+from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask, ReviewIssue
 from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
@@ -285,7 +285,7 @@ def retry_review(review_id: int, background_tasks: BackgroundTasks, db: Session 
 
 @app.get("/api/reviews/{review_id}", response_model=ReviewDetailOut)
 def get_review(review_id: int, db: Session = Depends(get_db)):
-    task = db.get(ReviewTask, review_id)
+    task = db.query(ReviewTask).options(selectinload(ReviewTask.issues)).filter(ReviewTask.id == review_id).first()
     if not task:
         raise HTTPException(404, "审核任务不存在")
     return task
