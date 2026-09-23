@@ -28,3 +28,18 @@ def test_review_requires_drawing():
     project = client.post("/api/projects", json={"name": "无图纸项目"}).json()
     response = client.post(f"/api/projects/{project['id']}/reviews")
     assert response.status_code == 400
+
+
+def test_review_detail_includes_issues():
+    from app.db import get_db
+    from app.models import ReviewTask, ReviewIssue
+    from app.main import app
+    db = next(get_db())
+    project = db.query(__import__("app.models", fromlist=["Project"]).Project).first()
+    task = ReviewTask(project_id=project.id, status="completed", progress=100)
+    db.add(task); db.commit(); db.refresh(task)
+    db.add(ReviewIssue(review_id=task.id, rule_id="T-001", category="测试", severity="low", title="测试问题", description="测试"))
+    db.commit()
+    response = client.get(f"/api/reviews/{task.id}")
+    assert response.status_code == 200
+    assert len(response.json()["issues"]) == 1
