@@ -19,6 +19,7 @@ class DrawingPageTextOut(BaseModel):
     x0: float; y0: float; x1: float; y1: float
     confidence: float | None; source: str
     block_no: int | None; line_no: int | None; word_no: int | None
+    coordinate_space: str
     created_at: datetime
     model_config = {"from_attributes": True}
 
