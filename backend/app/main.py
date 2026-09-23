@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, selectinload
 from .config import settings
-from .db import Base, SessionLocal, engine, get_db
+from .db import SessionLocal, get_db
 from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask
 from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items
 from .processing import FileInspectionError, inspect_file
@@ -17,7 +17,6 @@ UPLOAD_ROOT = Path(settings.upload_dir).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 PAGES_ROOT = UPLOAD_ROOT / "pages"
 PAGES_ROOT.mkdir(parents=True, exist_ok=True)
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AI施工图审核平台 API", version="0.5.0")
 app.add_middleware(
@@ -28,6 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 ALLOWED_TYPES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+
+def _page_path(drawing_id: int, filename: str) -> Path:
+    page_dir = (PAGES_ROOT / str(drawing_id)).resolve()
+    path = (page_dir / filename).resolve()
+    if page_dir not in path.parents:
+        raise HTTPException(400, "页面文件路径非法")
+    return path
 
 def process_drawing(drawing_id: int) -> None:
     db = SessionLocal()
@@ -225,7 +231,7 @@ def get_page_image(page_id: int, db: Session = Depends(get_db)):
     page = db.get(DrawingPage, page_id)
     if not page:
         raise HTTPException(404, "图纸页面不存在")
-    path = PAGES_ROOT / str(page.drawing_id) / page.image_name
+    path = _page_path(page.drawing_id, page.image_name)
     if not path.is_file():
         raise HTTPException(404, "页面图像文件不存在")
     media = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
@@ -236,7 +242,7 @@ def get_page_thumbnail(page_id: int, db: Session = Depends(get_db)):
     page = db.get(DrawingPage, page_id)
     if not page or not page.thumbnail_name:
         raise HTTPException(404, "缩略图不存在")
-    path = PAGES_ROOT / str(page.drawing_id) / page.thumbnail_name
+    path = _page_path(page.drawing_id, page.thumbnail_name)
     if not path.is_file():
         raise HTTPException(404, "缩略图文件不存在")
     return FileResponse(path, media_type="image/jpeg", filename=page.thumbnail_name)
