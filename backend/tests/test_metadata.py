@@ -33,6 +33,7 @@ def test_extract_pdf_page_text_items_preserves_coordinates(tmp_path: Path):
     assert items
     item = next(item for item in items if item["text"] == "A-101")
     assert item["source"] == "pdf_text"
+    assert item["coordinate_space"] == "pdf_points"
     assert item["x0"] >= 100
     assert item["y0"] < item["y1"]
     assert item["x1"] > item["x0"]
