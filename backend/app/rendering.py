@@ -60,3 +60,23 @@ def validate_image_dimensions(path: Path) -> tuple[int, int]:
     if width < 1 or height < 1 or width * height > MAX_PAGE_PIXELS:
         raise RenderingError("页面图像尺寸不安全")
     return width, height
+
+
+def create_thumbnail(source: Path, target: Path, max_long_edge: int = 640) -> tuple[int, int]:
+    if max_long_edge < 128 or max_long_edge > 2048:
+        raise RenderingError("缩略图尺寸必须在 128 到 2048 之间")
+    try:
+        with Image.open(source) as image:
+            image.verify()
+        with Image.open(source) as image:
+            image = image.convert("RGB")
+            image.thumbnail((max_long_edge, max_long_edge), Image.Resampling.LANCZOS)
+            if image.width < 1 or image.height < 1:
+                raise RenderingError("缩略图尺寸无效")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            image.save(target, format="JPEG", quality=82, optimize=True)
+            return image.width, image.height
+    except RenderingError:
+        raise
+    except Exception as exc:
+        raise RenderingError("缩略图生成失败") from exc
