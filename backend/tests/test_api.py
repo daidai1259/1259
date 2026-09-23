@@ -43,3 +43,24 @@ def test_review_detail_includes_issues():
     response = client.get(f"/api/reviews/{task.id}")
     assert response.status_code == 200
     assert len(response.json()["issues"]) == 1
+
+
+def test_drawing_issues_uses_latest_completed_review_even_when_empty():
+    from app.db import get_db
+    from app.models import Project, Drawing, DrawingPage, ReviewTask, ReviewIssue
+    db = next(get_db())
+    project = Project(name="最新审核语义测试")
+    db.add(project); db.commit(); db.refresh(project)
+    drawing = Drawing(project_id=project.id, original_name="test.pdf", stored_name="test.pdf", mime_type="application/pdf", size_bytes=1, sha256="e"*64, status="ready")
+    db.add(drawing); db.commit(); db.refresh(drawing)
+    page = DrawingPage(drawing_id=drawing.id, page_number=1, image_name="p.png", width=100, height=100, dpi=150, status="ready")
+    db.add(page); db.commit(); db.refresh(page)
+    old = ReviewTask(project_id=project.id, status="completed", progress=100)
+    db.add(old); db.commit(); db.refresh(old)
+    db.add(ReviewIssue(review_id=old.id, page_id=page.id, rule_id="OLD", category="测试", severity="low", title="旧问题", description="旧问题"))
+    db.commit()
+    latest = ReviewTask(project_id=project.id, status="completed", progress=100)
+    db.add(latest); db.commit(); db.refresh(latest)
+    response = client.get(f"/api/drawings/{drawing.id}/issues")
+    assert response.status_code == 200
+    assert response.json() == []
