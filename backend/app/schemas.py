@@ -41,7 +41,7 @@ class DrawingOut(BaseModel):
     discipline: str | None
     status: str
     created_at: datetime
-    pages: list[DrawingPageOut] = []
+    pages: list[DrawingPageOut] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 class ReviewOut(BaseModel):
