@@ -51,5 +51,29 @@ def extract_pdf_page_metadata(pdf_path: Path, page_number: int, filename: str = 
         if document is not None:
             document.close()
 
+def extract_pdf_page_text_items(pdf_path: Path, page_number: int) -> list[dict]:
+    document = None
+    try:
+        document = fitz.open(str(pdf_path))
+        page = document.load_page(page_number - 1)
+        items = []
+        for word in page.get_text("words"):
+            x0, y0, x1, y1, text, block_no, line_no, word_no = word[:8]
+            text = text.strip()
+            if not text:
+                continue
+            items.append({
+                "text": text,
+                "x0": float(x0), "y0": float(y0),
+                "x1": float(x1), "y1": float(y1),
+                "confidence": None,
+                "source": "pdf_text",
+                "block_no": int(block_no), "line_no": int(line_no), "word_no": int(word_no),
+            })
+        return items
+    finally:
+        if document is not None:
+            document.close()
+
 def extract_image_metadata(image_path: Path, filename: str = "") -> dict:
     return {"extracted_text": None, **infer_page_metadata("", filename)}
