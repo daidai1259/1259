@@ -51,6 +51,7 @@ class ReviewIssueOut(BaseModel):
     rule_id: str; category: str; severity: str; title: str; description: str
     evidence: str | None; confidence: float | None
     x0: float | None; y0: float | None; x1: float | None; y1: float | None
+    coordinate_space: str
     status: str; created_at: datetime
     model_config = {"from_attributes": True}
 
