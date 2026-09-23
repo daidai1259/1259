@@ -284,9 +284,7 @@ def list_drawing_issues(drawing_id: int, db: Session = Depends(get_db)):
     page_ids = db.query(DrawingPage.id).filter(DrawingPage.drawing_id == drawing_id).subquery()
     latest = (
         db.query(ReviewTask)
-        .join(ReviewIssue, ReviewIssue.review_id == ReviewTask.id)
         .filter(ReviewTask.project_id == project_id, ReviewTask.status == "completed")
-        .filter(ReviewIssue.page_id.in_(page_ids))
         .order_by(ReviewTask.finished_at.desc(), ReviewTask.id.desc())
         .first()
     )
