@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from .config import settings
 from .db import SessionLocal, get_db
 from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask, ReviewIssue
-from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items
+from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items, infer_page_metadata, clean_text
 from .ocr import get_ocr_provider
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
@@ -74,9 +74,20 @@ def process_drawing(drawing_id: int) -> None:
             if drawing.mime_type == "application/pdf":
                 metadata = extract_pdf_page_metadata(source, item["page_number"], drawing.original_name)
                 text_items = extract_pdf_page_text_items(source, item["page_number"])
+                if not text_items:
+                    ocr_result = OCR_PROVIDER.recognize(source_page)
+                    ocr_text = " ".join(word.text for word in ocr_result.words)
+                    metadata = {**metadata, "extracted_text": clean_text(ocr_text), **infer_page_metadata(ocr_text, drawing.original_name)}
+                    text_items = [{
+                        "text": word.text, "x0": word.x0, "y0": word.y0, "x1": word.x1, "y1": word.y1,
+                        "confidence": word.confidence, "source": f"ocr:{ocr_result.source}",
+                        "block_no": None, "line_no": None, "word_no": index,
+                    } for index, word in enumerate(ocr_result.words)]
             else:
                 metadata = extract_image_metadata(source_page, drawing.original_name)
                 ocr_result = OCR_PROVIDER.recognize(source_page)
+                ocr_text = " ".join(word.text for word in ocr_result.words)
+                metadata = {**metadata, "extracted_text": clean_text(ocr_text), **infer_page_metadata(ocr_text, drawing.original_name)}
                 text_items = [{
                     "text": word.text, "x0": word.x0, "y0": word.y0, "x1": word.x1, "y1": word.y1,
                     "confidence": word.confidence, "source": f"ocr:{ocr_result.source}",
