@@ -1,6 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from .models import DrawingPage, ReviewTask
 from .review_rules import run_duplicate_drawing_number_rules, run_registered_rules
 
@@ -21,6 +21,7 @@ def run_review(review_id: int, db: Session) -> None:
     try:
         pages = (
             db.query(DrawingPage)
+            .options(selectinload(DrawingPage.text_items))
             .join(DrawingPage.drawing)
             .filter(DrawingPage.drawing.has(project_id=task.project_id))
             .order_by(DrawingPage.id)
