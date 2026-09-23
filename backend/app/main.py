@@ -13,7 +13,7 @@ from .ocr import get_ocr_provider
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
 from .review import run_review
-from .schemas import DrawingOut, DrawingPageOut, DrawingPageSummaryOut, ProjectCreate, ProjectOut, ReviewDetailOut, ReviewOut, ReviewIssueOut
+from .schemas import DrawingOut, DrawingPageOut, DrawingPageSummaryOut, ProjectCreate, ProjectOut, ReviewDetailOut, ReviewOut, ReviewIssueOut, ReviewIssueStatusUpdate
 
 UPLOAD_ROOT = Path(settings.upload_dir).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
@@ -256,6 +256,16 @@ def list_review_issues(review_id: int, db: Session = Depends(get_db)):
     if not db.get(ReviewTask, review_id):
         raise HTTPException(404, "审核任务不存在")
     return db.query(ReviewIssue).filter(ReviewIssue.review_id == review_id).order_by(ReviewIssue.id).all()
+
+@app.patch("/api/review-issues/{issue_id}", response_model=ReviewIssueOut)
+def update_review_issue(issue_id: int, payload: ReviewIssueStatusUpdate, db: Session = Depends(get_db)):
+    issue = db.get(ReviewIssue, issue_id)
+    if not issue:
+        raise HTTPException(404, "审核问题不存在")
+    issue.status = payload.status
+    db.commit()
+    db.refresh(issue)
+    return issue
 
 @app.get("/api/drawings/{drawing_id}/issues", response_model=list[ReviewIssueOut])
 def list_drawing_issues(drawing_id: int, db: Session = Depends(get_db)):
