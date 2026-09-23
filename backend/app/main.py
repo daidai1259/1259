@@ -280,7 +280,22 @@ def update_review_issue(issue_id: int, payload: ReviewIssueStatusUpdate, db: Ses
 def list_drawing_issues(drawing_id: int, db: Session = Depends(get_db)):
     if not db.get(Drawing, drawing_id):
         raise HTTPException(404, "图纸不存在")
-    return (db.query(ReviewIssue).join(ReviewTask).filter(ReviewIssue.page_id.in_(db.query(DrawingPage.id).filter(DrawingPage.drawing_id == drawing_id))).order_by(ReviewIssue.id).all())
+    project_id = db.query(Drawing.project_id).filter(Drawing.id == drawing_id).scalar()
+    page_ids = db.query(DrawingPage.id).filter(DrawingPage.drawing_id == drawing_id).subquery()
+    latest = (
+        db.query(ReviewTask)
+        .join(ReviewIssue, ReviewIssue.review_id == ReviewTask.id)
+        .filter(ReviewTask.project_id == project_id, ReviewTask.status == "completed")
+        .filter(ReviewIssue.page_id.in_(page_ids))
+        .order_by(ReviewTask.finished_at.desc(), ReviewTask.id.desc())
+        .first()
+    )
+    if not latest:
+        return []
+    return (db.query(ReviewIssue)
+        .filter(ReviewIssue.review_id == latest.id)
+        .filter(ReviewIssue.page_id.in_(page_ids))
+        .order_by(ReviewIssue.id).all())
 
 @app.get("/api/drawing-pages/{page_id}/image")
 def get_page_image(page_id: int, db: Session = Depends(get_db)):
