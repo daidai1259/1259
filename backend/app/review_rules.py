@@ -193,6 +193,38 @@ def _reference_expected_discipline(reference: str) -> str | None:
     return mapping.get(value)
 
 
+def run_drawing_set_completeness_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    present = {
+        _normalized_value(page.detected_discipline)
+        for page in pages
+        if _normalized_value(page.detected_discipline)
+    }
+    reference_requirements: dict[str, set[str]] = {
+        "建筑": {"结构", "电气", "给排水"},
+        "结构": {"建筑"},
+        "电气": {"建筑"},
+        "给排水": {"建筑"},
+        "暖通": {"建筑"},
+    }
+    created = 0
+    for page in pages:
+        discipline = _normalized_value(page.detected_discipline)
+        required = reference_requirements.get(discipline, set())
+        missing = sorted(required - present)
+        if not missing:
+            continue
+        db.add(ReviewIssue(
+            review_id=review_id, page_id=page.id, rule_id="META-SET-001",
+            category="图纸集合完整性", severity="low", title="相关专业图纸未发现",
+            description=f"当前页面识别为“{page.detected_discipline}”，按基础交叉审核配置通常需要关联“{'、'.join(missing)}”专业图纸，但当前审核范围未发现这些专业。",
+            evidence=f"页面：{page.page_number}；当前专业：{page.detected_discipline}；未发现专业：{'、'.join(missing)}",
+            confidence=0.60, coordinate_space="normalized",
+        ))
+        created += 1
+    return created
+
+
 def run_reference_discipline_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
     pages = list(pages)
     by_number: dict[str, list[DrawingPage]] = {}
