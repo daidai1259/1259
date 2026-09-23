@@ -15,7 +15,7 @@ class ProjectOut(BaseModel):
     model_config = {"from_attributes": True}
 
 class DrawingPageOut(BaseModel):
-    id: int; drawing_id: int; page_number: int; image_name: str; width: int; height: int; dpi: int; status: str; created_at: datetime
+    id: int; drawing_id: int; page_number: int; image_name: str; thumbnail_name: str | None; thumbnail_width: int | None; thumbnail_height: int | None; width: int; height: int; dpi: int; status: str; created_at: datetime
     model_config = {"from_attributes": True}
 
 class DrawingOut(BaseModel):
