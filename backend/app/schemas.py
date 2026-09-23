@@ -46,6 +46,16 @@ class DrawingOut(BaseModel):
     pages: list[DrawingPageOut] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
+class ReviewIssueStatusUpdate(BaseModel):
+    status: str = Field(min_length=1, max_length=20)
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str) -> str:
+        value = value.strip().lower()
+        if value not in {"open", "confirmed", "rejected", "fixed"}:
+            raise ValueError("不支持的问题状态")
+        return value
+
 class ReviewIssueOut(BaseModel):
     id: int; review_id: int; page_id: int | None
     rule_id: str; category: str; severity: str; title: str; description: str
