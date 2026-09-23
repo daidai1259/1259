@@ -74,6 +74,14 @@ def process_drawing(drawing_id: int) -> None:
             if drawing.mime_type == "application/pdf":
                 metadata = extract_pdf_page_metadata(source, item["page_number"], drawing.original_name)
                 text_items = extract_pdf_page_text_items(source, item["page_number"])
+                for text_item in text_items:
+                    scale = float(item["dpi"] or 72) / 72.0
+                    text_item["x0"] *= scale
+                    text_item["y0"] *= scale
+                    text_item["x1"] *= scale
+                    text_item["y1"] *= scale
+                    text_item["coordinate_space"] = "pixels"
+
                 if not text_items:
                     ocr_result = OCR_PROVIDER.recognize(source_page)
                     ocr_text = " ".join(word.text for word in ocr_result.words)
@@ -82,6 +90,7 @@ def process_drawing(drawing_id: int) -> None:
                         "text": word.text, "x0": word.x0, "y0": word.y0, "x1": word.x1, "y1": word.y1,
                         "confidence": word.confidence, "source": f"ocr:{ocr_result.source}",
                         "block_no": None, "line_no": None, "word_no": index,
+                        "coordinate_space": "pixels",
                     } for index, word in enumerate(ocr_result.words)]
             else:
                 metadata = extract_image_metadata(source_page, drawing.original_name)
