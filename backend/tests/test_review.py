@@ -24,10 +24,13 @@ def test_review_worker_creates_metadata_issues():
     assert task.status == "completed"
     assert task.progress == 100
     assert task.attempts == 1
-    assert db.query(ReviewIssue).filter_by(review_id=task.id).count() == 2
+    assert db.query(ReviewIssue).filter_by(review_id=task.id).count() == 3
+    assert all(i.coordinate_space == "normalized" for i in db.query(ReviewIssue).filter_by(review_id=task.id).all())
 
 
 def test_review_rules_are_registered():
     ids = {rule.rule_id for rule in RULES}
     assert "META-DWG-001" in ids
     assert "META-SCALE-001" in ids
+    assert "META-TITLE-001" in ids
+    assert "META-SCALE-002" in ids
