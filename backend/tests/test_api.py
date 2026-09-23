@@ -1,7 +1,12 @@
+import os
+from pathlib import Path
 from fastapi.testclient import TestClient
 
-from app.main import app
+TEST_DB = Path("/tmp/1259-api-test.db")
+TEST_DB.unlink(missing_ok=True)
+os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB}"
 
+from app.main import app
 client = TestClient(app)
 
 def test_health():
@@ -13,7 +18,6 @@ def test_create_project_and_reject_empty():
     response = client.post("/api/projects", json={"name": "  测试项目  "})
     assert response.status_code == 201
     assert response.json()["name"] == "测试项目"
-
     response = client.post("/api/projects", json={"name": "   "})
     assert response.status_code == 422
 
