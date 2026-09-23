@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from .models import DrawingPage, ReviewTask
-from .review_rules import run_registered_rules
+from .review_rules import run_duplicate_drawing_number_rules, run_registered_rules
 
 def utcnow():
     return datetime.now(timezone.utc)
@@ -29,8 +29,10 @@ def run_review(review_id: int, db: Session) -> None:
         total = max(len(pages), 1)
         for index, page in enumerate(pages, start=1):
             run_registered_rules(page, task.id, db)
-            task.progress = min(95, 5 + int(index / total * 90))
+            task.progress = min(90, 5 + int(index / total * 80))
             db.commit()
+        run_duplicate_drawing_number_rules(pages, task.id, db)
+        db.commit()
         task.status = "completed"
         task.progress = 100
         task.finished_at = utcnow()
