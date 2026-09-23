@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base
 
@@ -54,6 +54,24 @@ class DrawingPage(Base):
     scale_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     drawing = relationship("Drawing", back_populates="pages")
+    text_items = relationship("DrawingPageText", back_populates="page", cascade="all, delete-orphan")
+
+class DrawingPageText(Base):
+    __tablename__ = "drawing_page_texts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    page_id: Mapped[int] = mapped_column(ForeignKey("drawing_pages.id", ondelete="CASCADE"), nullable=False, index=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    x0: Mapped[float] = mapped_column(Float, nullable=False)
+    y0: Mapped[float] = mapped_column(Float, nullable=False)
+    x1: Mapped[float] = mapped_column(Float, nullable=False)
+    y1: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[str] = mapped_column(String(30), nullable=False)
+    block_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    line_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    word_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    page = relationship("DrawingPage", back_populates="text_items")
 
 class ReviewTask(Base):
     __tablename__ = "review_tasks"
