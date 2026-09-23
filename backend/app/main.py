@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .models import Drawing, DrawingPage, Project, ReviewTask
+from .metadata import extract_image_metadata, extract_pdf_page_metadata
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
 from .schemas import DrawingOut, DrawingPageOut, ProjectCreate, ProjectOut, ReviewOut
@@ -43,7 +44,11 @@ def process_drawing(drawing_id: int) -> None:
             thumbnail_name = f"thumb-{item['page_number']:04d}.jpg"
             thumbnail_path = page_dir / thumbnail_name
             thumb_width, thumb_height = create_thumbnail(source_page, thumbnail_path)
-            db.add(DrawingPage(drawing_id=drawing.id, thumbnail_name=thumbnail_name, thumbnail_width=thumb_width, thumbnail_height=thumb_height, **item))
+            if drawing.mime_type == "application/pdf":
+                metadata = extract_pdf_page_metadata(source, item["page_number"], drawing.original_name)
+            else:
+                metadata = extract_image_metadata(source_page, drawing.original_name)
+            db.add(DrawingPage(drawing_id=drawing.id, thumbnail_name=thumbnail_name, thumbnail_width=thumb_width, thumbnail_height=thumb_height, metadata_status="ready", **metadata, **item))
         drawing.page_count = len(pages); drawing.processing_progress = 100; drawing.status = "ready"; db.commit()
     except (RenderingError, OSError) as exc:
         db.rollback()
