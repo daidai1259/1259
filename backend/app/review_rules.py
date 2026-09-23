@@ -102,7 +102,7 @@ def run_page_rules(page: DrawingPage, review_id: int, db: Session) -> int:
 
 
 def _normalized_value(value: str | None) -> str:
-    return re.sub(r"\\s+", "", (value or "").strip().upper())
+    return re.sub(r"\s+", "", (value or "").strip().upper())
 
 
 def run_cross_page_consistency_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
@@ -126,6 +126,32 @@ def run_cross_page_consistency_rules(pages: Iterable[DrawingPage], review_id: in
                 evidence=f"图名：{page.drawing_title}；涉及页面：{page_list}",
                 confidence=0.82, coordinate_space="normalized",
                 **_issue_kwargs(page, page.drawing_title),
+            ))
+            created += 1
+    return created
+
+
+def run_discipline_consistency_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    groups: dict[str, list[DrawingPage]] = {}
+    for page in pages:
+        number = _normalized_value(page.drawing_number)
+        if number and page.detected_discipline:
+            groups.setdefault(number, []).append(page)
+    created = 0
+    for number, matches in groups.items():
+        disciplines = {_normalized_value(p.detected_discipline) for p in matches}
+        if len(disciplines) <= 1:
+            continue
+        page_list = "、".join(str(p.page_number) for p in matches)
+        for page in matches:
+            db.add(ReviewIssue(
+                review_id=review_id, page_id=page.id, rule_id="META-CONSIST-002",
+                category="跨页一致性", severity="medium", title="同图号专业识别不一致",
+                description="相同图号在审核范围内被识别为不同专业，请核对图签、文件归类或专业识别结果。",
+                evidence=f"图号：{page.drawing_number}；涉及页面：{page_list}",
+                confidence=0.78, coordinate_space="normalized",
+                **_issue_kwargs(page, page.drawing_number),
             ))
             created += 1
     return created
