@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path\nimport shutil
 from uuid import uuid4
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +33,7 @@ def process_drawing(drawing_id: int) -> None:
             pages = render_pdf(source, page_dir)
         else:
             image_name = f"page-0001{source.suffix.lower()}"; target = page_dir / image_name
-            target.write_bytes(source.read_bytes())
+            shutil.copyfile(source, target)
             width, height = validate_image_dimensions(target)
             pages = [{"page_number":1,"image_name":image_name,"width":width,"height":height,"dpi":0}]
         drawing.processing_progress = 80; db.commit()
