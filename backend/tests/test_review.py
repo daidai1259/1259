@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.models import Project, Drawing, DrawingPage, ReviewTask, ReviewIssue
 from app.review import run_review
+from app.review_rules import RULES
 
 def test_review_worker_creates_metadata_issues():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
@@ -24,3 +25,9 @@ def test_review_worker_creates_metadata_issues():
     assert task.progress == 100
     assert task.attempts == 1
     assert db.query(ReviewIssue).filter_by(review_id=task.id).count() == 2
+
+
+def test_review_rules_are_registered():
+    ids = {rule.rule_id for rule in RULES}
+    assert "META-DWG-001" in ids
+    assert "META-SCALE-001" in ids
