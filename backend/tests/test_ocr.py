@@ -15,3 +15,9 @@ def test_noop_provider_is_explicit(tmp_path: Path):
     assert isinstance(result, OCRResult)
     assert result.source == "noop"
     assert result.words == []
+
+
+def test_normalize_word_coordinates():
+    from app.ocr import OCRWord, normalize_word
+    word = OCRWord("A-101", 100, 50, 300, 150, 0.92)
+    assert normalize_word(word, 1000, 500) == (0.1, 0.1, 0.3, 0.3)
