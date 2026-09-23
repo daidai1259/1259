@@ -5,6 +5,7 @@ from typing import Iterable
 import re
 from sqlalchemy.orm import Session
 from .models import DrawingPage, ReviewIssue
+from .coordinates import normalize_box
 
 @dataclass(frozen=True)
 class ReviewRule:
@@ -52,6 +53,27 @@ RULES: tuple[ReviewRule, ...] = (
     ),
 )
 
+
+def _text_box(page: DrawingPage, needle: str) -> tuple[float, float, float, float] | None:
+    needle = needle.strip().lower()
+    if not needle or not page.width or not page.height:
+        return None
+    for item in page.text_items:
+        text = (item.text or "").strip().lower()
+        if text == needle or needle in text:
+            box = normalize_box(item.x0, item.y0, item.x1, item.y1, page.width, page.height)
+            return (box.x0, box.y0, box.x1, box.y1)
+    return None
+
+
+def _issue_kwargs(page: DrawingPage, needle: str | None = None) -> dict:
+    if not needle:
+        return {}
+    box = _text_box(page, needle)
+    if not box:
+        return {}
+    return {"x0": box[0], "y0": box[1], "x1": box[2], "y1": box[3]}
+
 def run_registered_rules(page: DrawingPage, review_id: int, db: Session) -> int:
     return run_page_rules(page, review_id, db)
 
@@ -73,6 +95,7 @@ def run_page_rules(page: DrawingPage, review_id: int, db: Session) -> int:
             evidence=evidence,
             confidence=rule.confidence(page),
             coordinate_space="normalized",
+            **_issue_kwargs(page, page.scale_text),
         ))
         created += 1
     return created
@@ -104,6 +127,7 @@ def run_duplicate_drawing_number_rules(
                 evidence=f"重复图号：{number}；涉及页面：{page_list}",
                 confidence=0.90,
                 coordinate_space="normalized",
+                **_issue_kwargs(page, number),
             ))
             created += 1
     return created
