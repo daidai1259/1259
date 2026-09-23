@@ -268,6 +268,21 @@ def _run_review_background(review_id: int) -> None:
     finally:
         db.close()
 
+@app.post("/api/reviews/{review_id}/retry", response_model=ReviewOut)
+def retry_review(review_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    task = db.get(ReviewTask, review_id)
+    if not task:
+        raise HTTPException(404, "审核任务不存在")
+    if task.status != "failed":
+        raise HTTPException(409, "只有失败的审核任务可以重试")
+    task.status = "retry"
+    task.progress = 0
+    task.error = None
+    db.commit()
+    db.refresh(task)
+    background_tasks.add_task(_run_review_background, task.id)
+    return task
+
 @app.get("/api/reviews/{review_id}", response_model=ReviewDetailOut)
 def get_review(review_id: int, db: Session = Depends(get_db)):
     task = db.get(ReviewTask, review_id)
