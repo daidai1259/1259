@@ -164,6 +164,48 @@ def run_drawing_number_structure_rules(pages: Iterable[DrawingPage], review_id: 
     return created
 
 
+def run_cross_discipline_reference_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    discipline_map: dict[str, list[DrawingPage]] = {}
+    for page in pages:
+        discipline = _normalized_value(page.detected_discipline)
+        if discipline:
+            discipline_map.setdefault(discipline, []).append(page)
+
+    created = 0
+    known_disciplines = set(discipline_map)
+    for page in pages:
+        title = _normalized_value(page.drawing_title)
+        text = _normalized_value(page.extracted_text)
+        if not title and not text:
+            continue
+
+        references: list[str] = []
+        if "结构" in text or "结构" in title:
+            references.append("结构")
+        if "建筑" in text or "建筑" in title:
+            references.append("建筑")
+        if "给排水" in text or "给水" in text or "排水" in text:
+            references.append("给排水")
+        if "电气" in text:
+            references.append("电气")
+        if "暖通" in text or "空调" in text:
+            references.append("暖通")
+
+        for referenced in dict.fromkeys(references):
+            if referenced not in known_disciplines:
+                db.add(ReviewIssue(
+                    review_id=review_id, page_id=page.id, rule_id="META-XREF-001",
+                    category="专业交叉引用", severity="low", title="专业交叉引用未发现对应图纸",
+                    description=f"当前页面文字识别到“{referenced}”专业引用，但当前审核范围未识别到对应专业图纸。请确认审核范围是否完整，或核对 OCR/专业识别结果。",
+                    evidence=f"页面：{page.page_number}；识别引用：{referenced}",
+                    confidence=0.68, coordinate_space="normalized",
+                    **_issue_kwargs(page, referenced),
+                ))
+                created += 1
+    return created
+
+
 def run_discipline_consistency_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
     pages = list(pages)
     groups: dict[str, list[DrawingPage]] = {}
