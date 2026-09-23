@@ -14,12 +14,21 @@ class ProjectOut(BaseModel):
     id: int; name: str; created_at: datetime
     model_config = {"from_attributes": True}
 
+class DrawingPageTextOut(BaseModel):
+    id: int; page_id: int; text: str
+    x0: float; y0: float; x1: float; y1: float
+    confidence: float | None; source: str
+    block_no: int | None; line_no: int | None; word_no: int | None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
 class DrawingPageOut(BaseModel):
     id: int; drawing_id: int; page_number: int; image_name: str
     thumbnail_name: str | None; thumbnail_width: int | None; thumbnail_height: int | None
     width: int; height: int; dpi: int; status: str; metadata_status: str
     extracted_text: str | None; drawing_number: str | None; drawing_title: str | None
     detected_discipline: str | None; scale_text: str | None; created_at: datetime
+    text_items: list[DrawingPageTextOut] = Field(default_factory=list)
     model_config = {"from_attributes": True}
 
 class DrawingOut(BaseModel):
