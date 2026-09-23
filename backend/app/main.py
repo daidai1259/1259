@@ -11,7 +11,8 @@ from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask
 from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
-from .schemas import DrawingOut, DrawingPageOut, ProjectCreate, ProjectOut, ReviewOut
+from .review import run_review
+from .schemas import DrawingOut, DrawingPageOut, ProjectCreate, ProjectOut, ReviewDetailOut, ReviewOut
 
 UPLOAD_ROOT = Path(settings.upload_dir).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
@@ -248,7 +249,7 @@ def get_page_thumbnail(page_id: int, db: Session = Depends(get_db)):
     return FileResponse(path, media_type="image/jpeg", filename=page.thumbnail_name)
 
 @app.post("/api/projects/{project_id}/reviews", response_model=ReviewOut, status_code=201)
-def create_review(project_id: int, db: Session = Depends(get_db)):
+def create_review(project_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if not db.get(Project, project_id):
         raise HTTPException(404, "项目不存在")
     if db.query(Drawing).filter(Drawing.project_id == project_id, Drawing.status == "ready").count() == 0:
@@ -257,9 +258,17 @@ def create_review(project_id: int, db: Session = Depends(get_db)):
     db.add(task)
     db.commit()
     db.refresh(task)
+    background_tasks.add_task(_run_review_background, task.id)
     return task
 
-@app.get("/api/reviews/{review_id}", response_model=ReviewOut)
+def _run_review_background(review_id: int) -> None:
+    db = SessionLocal()
+    try:
+        run_review(review_id, db)
+    finally:
+        db.close()
+
+@app.get("/api/reviews/{review_id}", response_model=ReviewDetailOut)
 def get_review(review_id: int, db: Session = Depends(get_db)):
     task = db.get(ReviewTask, review_id)
     if not task:
