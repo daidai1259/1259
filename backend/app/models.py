@@ -46,6 +46,12 @@ class DrawingPage(Base):
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     dpi: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(30), default="rendered", nullable=False)
+    metadata_status: Mapped[str] = mapped_column(String(30), default="pending", nullable=False)
+    extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    drawing_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    drawing_title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detected_discipline: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    scale_text: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     drawing = relationship("Drawing", back_populates="pages")
 
