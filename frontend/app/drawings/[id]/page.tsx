@@ -1,4 +1,5 @@
 "use client";
+import "./viewer.css";
 import { useState } from "react";
 
 type Page={id:number;page_number:number;image_name:string;thumbnail_name?:string|null;width:number;height:number;drawing_number?:string|null;drawing_title?:string|null;scale_text?:string|null};
