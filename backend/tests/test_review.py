@@ -34,3 +34,30 @@ def test_review_rules_are_registered():
     assert "META-SCALE-001" in ids
     assert "META-TITLE-001" in ids
     assert "META-SCALE-002" in ids
+
+
+def test_review_rule_localizes_text_evidence():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    from app.db import Base
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    project = Project(name="定位测试")
+    db.add(project); db.commit(); db.refresh(project)
+    drawing = Drawing(project_id=project.id, original_name="A.pdf", stored_name="x.pdf", mime_type="application/pdf", size_bytes=1, sha256="b"*64, status="ready")
+    db.add(drawing); db.commit(); db.refresh(drawing)
+    page = DrawingPage(drawing_id=drawing.id, page_number=1, image_name="page.png", width=1000, height=500, dpi=150, metadata_status="ready", scale_text="bad")
+    db.add(page); db.commit(); db.refresh(page)
+    from app.models import DrawingPageText
+    db.add(DrawingPageText(page_id=page.id, text="bad", x0=200, y0=100, x1=300, y1=130, coordinate_space="pixels"))
+    db.commit()
+    task = ReviewTask(project_id=project.id, status="queued", progress=0)
+    db.add(task); db.commit(); db.refresh(task)
+    run_review(task.id, db)
+    issue = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-SCALE-002").first()
+    assert issue is not None
+    assert issue.coordinate_space == "normalized"
+    assert issue.x0 == 0.2
+    assert issue.y0 == 0.2
+    assert issue.x1 == 0.3
+    assert issue.y1 == 0.26
