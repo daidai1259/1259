@@ -19,6 +19,12 @@ class OCRResult:
     height: int
     source: str
 
+def normalize_word(word: OCRWord, width: int, height: int) -> tuple[float, float, float, float]:
+    if width <= 0 or height <= 0:
+        raise ValueError("OCR 页面尺寸必须大于 0")
+    return (max(0.0, min(1.0, word.x0 / width)), max(0.0, min(1.0, word.y0 / height)),
+            max(0.0, min(1.0, word.x1 / width)), max(0.0, min(1.0, word.y1 / height)))
+
 class OCRProvider(Protocol):
     name: str
     def recognize(self, image_path: Path) -> OCRResult: ...
