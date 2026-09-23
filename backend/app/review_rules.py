@@ -177,6 +177,52 @@ def _extract_drawing_references(text: str) -> list[str]:
     return list(dict.fromkeys(found))
 
 
+def _reference_expected_discipline(reference: str) -> str | None:
+    prefix = re.match(r"^([A-Z]+)", reference.upper())
+    if not prefix:
+        return None
+    value = prefix.group(1)
+    mapping = {
+        "A": "建筑",
+        "S": "结构",
+        "M": "暖通",
+        "E": "电气",
+        "P": "给排水",
+        "W": "给排水",
+    }
+    return mapping.get(value)
+
+
+def run_reference_discipline_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    by_number: dict[str, list[DrawingPage]] = {}
+    for page in pages:
+        number = _normalized_value(page.drawing_number)
+        if number:
+            by_number.setdefault(number, []).append(page)
+
+    created = 0
+    for page in pages:
+        for reference in _extract_drawing_references(page.extracted_text or ""):
+            expected = _reference_expected_discipline(reference)
+            matches = by_number.get(_normalized_value(reference), [])
+            if not expected or not matches:
+                continue
+            disciplines = {_normalized_value(match.detected_discipline) for match in matches if match.detected_discipline}
+            if not disciplines or expected in disciplines:
+                continue
+            db.add(ReviewIssue(
+                review_id=review_id, page_id=page.id, rule_id="META-XREF-003",
+                category="图号交叉引用", severity="medium", title="引用图号与专业识别不一致",
+                description=f"引用图号 {reference} 按图号前缀推断为“{expected}”，但对应页面的专业识别结果为“{'、'.join(sorted(disciplines))}”。请核对图号、专业识别或图纸归类。",
+                evidence=f"当前页面：{page.page_number}；引用图号：{reference}；目标页面专业：{'、'.join(sorted(disciplines))}",
+                confidence=0.76, coordinate_space="normalized",
+                **_issue_kwargs(page, reference),
+            ))
+            created += 1
+    return created
+
+
 def run_drawing_reference_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
     pages = list(pages)
     known = {_normalized_value(p.drawing_number): p for p in pages if _normalized_value(p.drawing_number)}
