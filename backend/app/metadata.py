@@ -69,6 +69,7 @@ def extract_pdf_page_text_items(pdf_path: Path, page_number: int) -> list[dict]:
                 "confidence": None,
                 "source": "pdf_text",
                 "block_no": int(block_no), "line_no": int(line_no), "word_no": int(word_no),
+                "coordinate_space": "pdf_points",
             })
         return items
     finally:
