@@ -17,7 +17,7 @@ export default function DrawingViewer(){
  },[]);
  const pageIssues=useMemo(()=>issues.filter(i=>i.page_id===current?.id),[issues,current]);
  useEffect(()=>{if(!current)return; setSelected(null); const id=window.location.pathname.split("/").filter(Boolean).pop(); if(!id)return;
-  fetch(`${API}/api/reviews/latest/issues?drawing_id=${current.drawing_id}`).then(r=>r.ok?r.json():[]).then(setIssues).catch(()=>{});
+  fetch(`${API}/api/drawings/${current.drawing_id}/issues`).then(r=>r.ok?r.json():[]).then(setIssues).catch(()=>{});
  },[current]);
  if(loading)return <main className="viewer-shell"><div className="viewer-loading">正在加载真实图纸数据…</div></main>;
  if(error)return <main className="viewer-shell"><div className="viewer-loading">{error}</div></main>;
