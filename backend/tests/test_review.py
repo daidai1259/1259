@@ -126,3 +126,27 @@ def test_cross_discipline_reference_rule():
     issue = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-XREF-001").first()
     assert issue is not None
     assert "结构" in issue.evidence
+
+
+def test_drawing_reference_rule():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    from app.db import Base
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    project = Project(name="图号引用测试")
+    db.add(project); db.commit(); db.refresh(project)
+    drawing = Drawing(project_id=project.id, original_name="set.pdf", stored_name="set.pdf", mime_type="application/pdf", size_bytes=1, sha256="1"*64, status="ready")
+    db.add(drawing); db.commit(); db.refresh(drawing)
+    db.add(DrawingPage(
+        drawing_id=drawing.id, page_number=1, image_name="p.png", width=1000, height=500,
+        dpi=150, metadata_status="ready", drawing_number="A-101", detected_discipline="建筑",
+        extracted_text="详见结构图 S-201"
+    ))
+    db.commit()
+    task = ReviewTask(project_id=project.id, status="queued", progress=0)
+    db.add(task); db.commit(); db.refresh(task)
+    run_review(task.id, db)
+    issue = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-XREF-002").first()
+    assert issue is not None
+    assert "S-201" in issue.evidence
