@@ -12,7 +12,7 @@ from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
 from .review import run_review
-from .schemas import DrawingOut, DrawingPageOut, ProjectCreate, ProjectOut, ReviewDetailOut, ReviewOut
+from .schemas import DrawingOut, DrawingPageOut, DrawingPageSummaryOut, ProjectCreate, ProjectOut, ReviewDetailOut, ReviewOut, ReviewIssueOut
 
 UPLOAD_ROOT = Path(settings.upload_dir).resolve()
 UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
@@ -226,6 +226,18 @@ def list_pages(drawing_id: int, db: Session = Depends(get_db)):
         .order_by(DrawingPage.page_number)
         .all()
     )
+
+@app.get("/api/drawings/{drawing_id}/page-summaries", response_model=list[DrawingPageSummaryOut])
+def list_page_summaries(drawing_id: int, db: Session = Depends(get_db)):
+    if not db.get(Drawing, drawing_id):
+        raise HTTPException(404, "图纸不存在")
+    return db.query(DrawingPage).filter(DrawingPage.drawing_id == drawing_id).order_by(DrawingPage.page_number).all()
+
+@app.get("/api/reviews/{review_id}/issues", response_model=list[ReviewIssueOut])
+def list_review_issues(review_id: int, db: Session = Depends(get_db)):
+    if not db.get(ReviewTask, review_id):
+        raise HTTPException(404, "审核任务不存在")
+    return db.query(ReviewIssue).filter(ReviewIssue.review_id == review_id).order_by(ReviewIssue.id).all()
 
 @app.get("/api/drawing-pages/{page_id}/image")
 def get_page_image(page_id: int, db: Session = Depends(get_db)):
