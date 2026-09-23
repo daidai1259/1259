@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from collections.abc import Callable
+from typing import Iterable
 import re
 from sqlalchemy.orm import Session
 from .models import DrawingPage, ReviewIssue
@@ -52,6 +53,10 @@ RULES: tuple[ReviewRule, ...] = (
 )
 
 def run_registered_rules(page: DrawingPage, review_id: int, db: Session) -> int:
+    return run_page_rules(page, review_id, db)
+
+
+def run_page_rules(page: DrawingPage, review_id: int, db: Session) -> int:
     created = 0
     evidence = (page.extracted_text or "").strip()[:1000] or None
     for rule in RULES:
@@ -70,4 +75,35 @@ def run_registered_rules(page: DrawingPage, review_id: int, db: Session) -> int:
             coordinate_space="normalized",
         ))
         created += 1
+    return created
+
+
+def run_duplicate_drawing_number_rules(
+    pages: Iterable[DrawingPage], review_id: int, db: Session
+) -> int:
+    groups: dict[str, list[DrawingPage]] = {}
+    for page in pages:
+        number = (page.drawing_number or "").strip().upper()
+        if number:
+            groups.setdefault(number, []).append(page)
+
+    created = 0
+    for number, matches in groups.items():
+        if len(matches) < 2:
+            continue
+        page_list = "、".join(str(p.page_number) for p in matches)
+        for page in matches:
+            db.add(ReviewIssue(
+                review_id=review_id,
+                page_id=page.id,
+                rule_id="META-DWG-002",
+                category="图签一致性",
+                severity="medium",
+                title="图号重复",
+                description=f"审核范围内发现图号 {number} 出现在多个页面。请核对是否为重复图纸或图号识别错误。",
+                evidence=f"重复图号：{number}；涉及页面：{page_list}",
+                confidence=0.90,
+                coordinate_space="normalized",
+            ))
+            created += 1
     return created
