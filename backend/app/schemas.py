@@ -24,6 +24,9 @@ class DrawingOut(BaseModel):
     original_name: str
     mime_type: str
     size_bytes: int
+    page_count: int | None
+    drawing_number: str | None
+    discipline: str | None
     status: str
     created_at: datetime
     model_config = {"from_attributes": True}
