@@ -101,6 +101,36 @@ def run_page_rules(page: DrawingPage, review_id: int, db: Session) -> int:
     return created
 
 
+def _normalized_value(value: str | None) -> str:
+    return re.sub(r"\\s+", "", (value or "").strip().upper())
+
+
+def run_cross_page_consistency_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    groups: dict[str, list[DrawingPage]] = {}
+    for page in pages:
+        title = _normalized_value(page.drawing_title)
+        if title:
+            groups.setdefault(title, []).append(page)
+    created = 0
+    for title, matches in groups.items():
+        numbers = {_normalized_value(p.drawing_number) for p in matches if _normalized_value(p.drawing_number)}
+        if len(numbers) <= 1:
+            continue
+        page_list = "、".join(str(p.page_number) for p in matches)
+        for page in matches:
+            db.add(ReviewIssue(
+                review_id=review_id, page_id=page.id, rule_id="META-CONSIST-001",
+                category="跨页一致性", severity="medium", title="同名图纸图号不一致",
+                description="检测到相同图名对应多个图号，请核对图签及图号识别结果。",
+                evidence=f"图名：{page.drawing_title}；涉及页面：{page_list}",
+                confidence=0.82, coordinate_space="normalized",
+                **_issue_kwargs(page, page.drawing_title),
+            ))
+            created += 1
+    return created
+
+
 def run_duplicate_drawing_number_rules(
     pages: Iterable[DrawingPage], review_id: int, db: Session
 ) -> int:
