@@ -9,6 +9,7 @@ from .config import settings
 from .db import SessionLocal, get_db
 from .models import Drawing, DrawingPage, DrawingPageText, Project, ReviewTask, ReviewIssue
 from .metadata import extract_image_metadata, extract_pdf_page_metadata, extract_pdf_page_text_items
+from .ocr import get_ocr_provider
 from .processing import FileInspectionError, inspect_file
 from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
 from .review import run_review
@@ -28,6 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 ALLOWED_TYPES = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
+OCR_PROVIDER = get_ocr_provider()
 
 def _page_path(drawing_id: int, filename: str) -> Path:
     page_dir = (PAGES_ROOT / str(drawing_id)).resolve()
@@ -74,7 +76,12 @@ def process_drawing(drawing_id: int) -> None:
                 text_items = extract_pdf_page_text_items(source, item["page_number"])
             else:
                 metadata = extract_image_metadata(source_page, drawing.original_name)
-                text_items = []
+                ocr_result = OCR_PROVIDER.recognize(source_page)
+                text_items = [{
+                    "text": word.text, "x0": word.x0, "y0": word.y0, "x1": word.x1, "y1": word.y1,
+                    "confidence": word.confidence, "source": f"ocr:{ocr_result.source}",
+                    "block_no": None, "line_no": None, "word_no": index,
+                } for index, word in enumerate(ocr_result.words)]
 
             page = DrawingPage(
                 drawing_id=drawing.id,
