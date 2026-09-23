@@ -15,6 +15,8 @@ const issues=[
 
 export default function Home(){
  const [active,setActive]=useState("总览");
+ const [uploaded,setUploaded]=useState(false);
+ const [reviewing,setReviewing]=useState(false);
  return <main className="shell">
   <aside className="sidebar">
    <div className="brand"><div className="logo">12</div><div><b>1259</b><span>AI施工图审核</span></div></div>
@@ -23,16 +25,18 @@ export default function Home(){
    <div className="side-foot"><span className="dot"/>系统运行正常</div>
   </aside>
   <section className="content">
-   <header><div><div className="crumb">项目 / {active}</div><h1>{active}</h1></div><div className="header-actions"><button className="ghost">导出报告</button><button className="primary">＋ 上传图纸</button></div></header>
+   <header><div><div className="crumb">项目 / {active}</div><h1>{active}</h1></div><div className="header-actions"><button className="ghost">导出报告</button><button className="primary" onClick={()=>setUploaded(true)}>＋ 上传图纸</button></div></header>
    <div className="notice"><span>AI 辅助审图</span> 当前审核结果用于辅助校核，不替代注册工程师、施工图审查机构或法定审批。</div>
+   {uploaded&&<div className="notice success"><span>上传入口已就绪</span> 下一步将连接项目 API，实现真实文件上传、解析进度与页面生成。</div>}
+   {reviewing&&<div className="notice"><span>AI 审图任务</span> 正在执行规则检查，完成后将生成可定位的问题记录。</div>}
    <section className="stats">{stats.map(([n,l])=><div className="stat" key={l}><strong>{n}</strong><span>{l}</span></div>)}</section>
    <div className="grid">
-    <section className="card wide"><div className="card-head"><div><h2>图纸处理进度</h2><p>最近上传与解析状态</p></div><button className="textbtn">查看全部 →</button></div>
+    <section className="card wide"><div className="card-head"><div><h2>图纸处理进度</h2><p>最近上传与解析状态</p></div><button className="textbtn" onClick={()=>setActive("图纸管理")}>查看全部 →</button></div>
      <div className="table">{drawings.map(d=><div className="row" key={d.no}><div className="drawing-icon">DWG</div><div className="drawing-main"><b>{d.no} · {d.name}</b><span>{d.discipline} · {d.pages} 页</span></div><span className={d.status==="处理中"?"pill blue":"pill green"}>{d.status}</span><span className="row-action">查看 →</span></div>)}</div>
     </section>
-    <section className="card"><div className="card-head"><div><h2>审核概览</h2><p>规则检查与 AI 分析</p></div></div><div className="donut"><div><b>87%</b><span>完成</span></div></div><div className="legend"><span><i className="green-dot"/>已检查 8</span><span><i className="amber-dot"/>待检查 2</span><span><i className="red-dot"/>发现问题 3</span></div></section>
+    <section className="card"><div className="card-head"><div><h2>审核概览</h2><p>规则检查与 AI 分析</p></div><button className="primary small" onClick={()=>setReviewing(true)}>开始 AI 审图</button></div><div className="donut"><div><b>87%</b><span>完成</span></div></div><div className="legend"><span><i className="green-dot"/>已检查 8</span><span><i className="amber-dot"/>待检查 2</span><span><i className="red-dot"/>发现问题 3</span></div></section>
    </div>
-   <section className="card"><div className="card-head"><div><h2>问题清单</h2><p>按严重程度与图纸位置汇总</p></div><button className="textbtn">进入问题中心 →</button></div>
+   <section className="card"><div className="card-head"><div><h2>问题清单</h2><p>按严重程度与图纸位置汇总</p></div><button className="textbtn" onClick={()=>setActive("问题清单")}>进入问题中心 →</button></div>
     <div className="issues">{issues.map((i,n)=><div className="issue" key={n}><span className={"severity "+i.level}>{i.level}</span><div><b>{i.title}</b><span>{i.page} · {i.pos}</span></div><button>定位 →</button></div>)}</div>
    </section>
   </section>
