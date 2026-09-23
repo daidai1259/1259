@@ -17,17 +17,31 @@ class ProjectOut(BaseModel):
     created_at: datetime
     model_config = {"from_attributes": True}
 
+class DrawingPageOut(BaseModel):
+    id: int
+    drawing_id: int
+    page_number: int
+    image_name: str
+    width: int
+    height: int
+    dpi: int
+    status: str
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
 class DrawingOut(BaseModel):
     id: int
     project_id: int
     original_name: str
     mime_type: str
     size_bytes: int
+    sha256: str
     page_count: int | None
     drawing_number: str | None
     discipline: str | None
     status: str
     created_at: datetime
+    pages: list[DrawingPageOut] = []
     model_config = {"from_attributes": True}
 
 class ReviewOut(BaseModel):
