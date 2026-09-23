@@ -131,6 +131,39 @@ def run_cross_page_consistency_rules(pages: Iterable[DrawingPage], review_id: in
     return created
 
 
+def run_drawing_number_structure_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pattern = re.compile(r"^([A-Z]+)[-_]?(\\d{3})$", re.IGNORECASE)
+    groups: dict[str, list[tuple[DrawingPage, int]]] = {}
+    for page in pages:
+        value = _normalized_value(page.drawing_number)
+        match = pattern.fullmatch(value)
+        if match:
+            prefix = match.group(1).upper()
+            number = int(match.group(2))
+            groups.setdefault(prefix, []).append((page, number))
+    created = 0
+    for prefix, entries in groups.items():
+        by_number: dict[int, list[DrawingPage]] = {}
+        for page, number in entries:
+            by_number.setdefault(number, []).append(page)
+        numbers = sorted(by_number)
+        for left, right in zip(numbers, numbers[1:]):
+            if right - left <= 1:
+                continue
+            for missing in range(left + 1, right):
+                sample = by_number[left][0]
+                db.add(ReviewIssue(
+                    review_id=review_id, page_id=sample.id, rule_id="META-DWG-003",
+                    category="图号连续性", severity="low", title="图号序列存在间隔",
+                    description=f"检测到 {prefix} 图号从 {left:03d} 跳到 {right:03d}，中间存在未发现的编号。请确认是否存在漏图、分册或编号规则。",
+                    evidence=f"相邻检测图号：{prefix}-{left:03d}、{prefix}-{right:03d}；疑似缺失：{prefix}-{missing:03d}",
+                    confidence=0.70, coordinate_space="normalized",
+                    **_issue_kwargs(sample, sample.drawing_number),
+                ))
+                created += 1
+    return created
+
+
 def run_discipline_consistency_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
     pages = list(pages)
     groups: dict[str, list[DrawingPage]] = {}
