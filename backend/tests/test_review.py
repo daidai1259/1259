@@ -61,3 +61,24 @@ def test_review_rule_localizes_text_evidence():
     assert issue.y0 == 0.2
     assert issue.x1 == 0.3
     assert issue.y1 == 0.26
+
+
+def test_drawing_number_sequence_gap_rule():
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    from app.db import Base
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    project = Project(name="图号序列测试")
+    db.add(project); db.commit(); db.refresh(project)
+    drawing = Drawing(project_id=project.id, original_name="set.pdf", stored_name="set.pdf", mime_type="application/pdf", size_bytes=1, sha256="c"*64, status="ready")
+    db.add(drawing); db.commit(); db.refresh(drawing)
+    for n, number in enumerate(["A-101", "A-103"], start=1):
+        db.add(DrawingPage(drawing_id=drawing.id, page_number=n, image_name=f"p{n}.png", width=1000, height=500, dpi=150, metadata_status="ready", drawing_number=number))
+    db.commit()
+    task = ReviewTask(project_id=project.id, status="queued", progress=0)
+    db.add(task); db.commit(); db.refresh(task)
+    run_review(task.id, db)
+    issue = db.query(ReviewIssue).filter_by(review_id=task.id, rule_id="META-DWG-003").first()
+    assert issue is not None
+    assert "A-102" in issue.evidence
