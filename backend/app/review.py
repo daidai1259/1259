@@ -33,6 +33,7 @@ def run_review(review_id: int, db: Session) -> None:
             task.progress = min(90, 5 + int(index / total * 80))
             db.commit()
         run_duplicate_drawing_number_rules(pages, task.id, db)
+        run_cross_page_consistency_rules(pages, task.id, db)
         db.commit()
         task.status = "completed"
         task.progress = 100
