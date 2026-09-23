@@ -8,7 +8,7 @@ from .config import settings
 from .db import Base, SessionLocal, engine, get_db
 from .models import Drawing, DrawingPage, Project, ReviewTask
 from .processing import FileInspectionError, inspect_file
-from .rendering import RenderingError, render_pdf, validate_image_dimensions
+from .rendering import RenderingError, create_thumbnail, render_pdf, validate_image_dimensions
 from .schemas import DrawingOut, DrawingPageOut, ProjectCreate, ProjectOut, ReviewOut
 
 UPLOAD_ROOT = Path(settings.upload_dir).resolve()
@@ -38,7 +38,11 @@ def process_drawing(drawing_id: int) -> None:
             pages = [{"page_number":1,"image_name":image_name,"width":width,"height":height,"dpi":0}]
         drawing.processing_progress = 80; db.commit()
         for item in pages:
-            db.add(DrawingPage(drawing_id=drawing.id, **item))
+            source_page = page_dir / item["image_name"]
+            thumbnail_name = f"thumb-{item['page_number']:04d}.jpg"
+            thumbnail_path = page_dir / thumbnail_name
+            thumb_width, thumb_height = create_thumbnail(source_page, thumbnail_path)
+            db.add(DrawingPage(drawing_id=drawing.id, thumbnail_name=thumbnail_name, thumbnail_width=thumb_width, thumbnail_height=thumb_height, **item))
         drawing.page_count = len(pages); drawing.processing_progress = 100; drawing.status = "ready"; db.commit()
     except (RenderingError, OSError) as exc:
         db.rollback()
@@ -113,6 +117,14 @@ def get_page_image(page_id:int,db:Session=Depends(get_db)):
     if not path.is_file(): raise HTTPException(404,"页面图像文件不存在")
     media="image/png" if path.suffix.lower()==".png" else "image/jpeg"
     return FileResponse(path,media_type=media,filename=page.image_name)
+
+@app.get("/api/drawing-pages/{page_id}/thumbnail")
+def get_page_thumbnail(page_id:int,db:Session=Depends(get_db)):
+    page=db.get(DrawingPage,page_id)
+    if not page or not page.thumbnail_name: raise HTTPException(404,"缩略图不存在")
+    path=PAGES_ROOT/str(page.drawing_id)/page.thumbnail_name
+    if not path.is_file(): raise HTTPException(404,"缩略图文件不存在")
+    return FileResponse(path,media_type="image/jpeg",filename=page.thumbnail_name)
 
 @app.post("/api/projects/{project_id}/reviews",response_model=ReviewOut,status_code=201)
 def create_review(project_id:int,db:Session=Depends(get_db)):
