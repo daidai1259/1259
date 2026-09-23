@@ -164,6 +164,40 @@ def run_drawing_number_structure_rules(pages: Iterable[DrawingPage], review_id: 
     return created
 
 
+def _extract_drawing_references(text: str) -> list[str]:
+    if not text:
+        return []
+    patterns = (
+        r"\b[A-Z]{1,4}[-_]?\d{3}\b",
+        r"\b[A-Z]{1,4}\d{3}\b",
+    )
+    found: list[str] = []
+    for pattern in patterns:
+        found.extend(re.findall(pattern, text.upper()))
+    return list(dict.fromkeys(found))
+
+
+def run_drawing_reference_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
+    pages = list(pages)
+    known = {_normalized_value(p.drawing_number): p for p in pages if _normalized_value(p.drawing_number)}
+    created = 0
+    for page in pages:
+        for reference in _extract_drawing_references(page.extracted_text or ""):
+            normalized = _normalized_value(reference)
+            if normalized in known:
+                continue
+            db.add(ReviewIssue(
+                review_id=review_id, page_id=page.id, rule_id="META-XREF-002",
+                category="图号交叉引用", severity="medium", title="引用图号未在审核范围内发现",
+                description=f"当前页面文字中识别到引用图号 {reference}，但审核范围内未发现对应图号。请确认图纸是否缺失、图号是否识别错误或审核范围是否完整。",
+                evidence=f"页面：{page.page_number}；引用图号：{reference}",
+                confidence=0.72, coordinate_space="normalized",
+                **_issue_kwargs(page, reference),
+            ))
+            created += 1
+    return created
+
+
 def run_cross_discipline_reference_rules(pages: Iterable[DrawingPage], review_id: int, db: Session) -> int:
     pages = list(pages)
     discipline_map: dict[str, list[DrawingPage]] = {}
